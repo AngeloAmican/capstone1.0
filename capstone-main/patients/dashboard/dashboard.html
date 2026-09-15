@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Patient Dashboard | DentaNueva Dental Clinic</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../navigation_bar/sidebar.css" />
+    <link rel="stylesheet" href="dashboard.css" />
+  </head>
+
+  <body>
+    <div class="dashboard-layout">
+      <aside id="sidebar-container"></aside>
+
+      <main class="main-content">
+        <header class="dash-header">
+          <div class="page-heading">
+            <h1 class="dashboard-title" id="welcomeTitle">
+              Good day, Patient!
+            </h1>
+
+            <p class="dashboard-subtitle">
+              Here's an overview of your dental care.
+            </p>
+          </div>
+
+          <div class="dash-header-right">
+            <div class="header-action-row">
+              <div class="header-quick-actions">
+                <button
+                  type="button"
+                  class="qa-btn-pill primary-action"
+                  onclick="
+                    window.location.href = '../appointment/appointment.html'
+                  "
+                >
+                  <i class="fa-solid fa-calendar-plus"></i>
+                  <span>New Appointment</span>
+                </button>
+              </div>
+
+              <div class="datetime-pill-widget">
+                <div class="datetime-pill-content">
+                  <div class="datetime-icon-wrap">
+                    <i class="fa-regular fa-clock"></i>
+                  </div>
+
+                  <div class="datetime-text-group">
+                    <span id="currentDate">Loading date...</span>
+                    <span class="datetime-dot">•</span>
+                    <span id="currentTime">--:-- --</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon stat-icon-green">
+              <i class="fa-solid fa-calendar-check"></i>
+            </div>
+
+            <div class="stat-body">
+              <span class="stat-label">Next Appointment</span>
+              <span class="stat-value" id="statNextAppointment"> None </span>
+              <span class="stat-trend" id="statNextAppointmentInfo">
+                No upcoming appointment
+              </span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon stat-icon-amber">
+              <i class="fa-solid fa-wallet"></i>
+            </div>
+
+            <div class="stat-body">
+              <span class="stat-label">Current Balance</span>
+              <span class="stat-value" id="statBalance"> ₱0.00 </span>
+              <span class="stat-trend" id="statBalanceInfo">
+                No outstanding balance
+              </span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon stat-icon-purple">
+              <i class="fa-solid fa-file-medical"></i>
+            </div>
+
+            <div class="stat-body">
+              <span class="stat-label">Medical Record</span>
+              <span class="stat-value" id="statMedicalRecord">
+                Incomplete
+              </span>
+              <span class="stat-trend" id="statMedicalRecordInfo">
+                Medical form needs to be completed
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section class="two-col-grid">
+          <section class="panel appointments-panel">
+            <div class="panel-header">
+              <div class="panel-heading">
+                <h3>Today's Appointments</h3>
+                <p class="panel-subtitle">Today's scheduled patients</p>
+              </div>
+            </div>
+
+            <div
+              class="panel-body appointments-panel-body"
+              id="appointmentsList"
+            ></div>
+          </section>
+
+          <section class="panel quick-access-panel">
+            <div class="panel-header">
+              <div class="panel-heading">
+                <h3>Quick Access</h3>
+                <p class="panel-subtitle">
+                  Quickly access your dental care pages
+                </p>
+              </div>
+            </div>
+
+            <div class="panel-body quick-access-body">
+              <div class="quick-access-grid">
+                <button
+                  type="button"
+                  class="quick-access-item"
+                  onclick="
+                    window.location.href = '../appointment/appointment.html'
+                  "
+                >
+                  <span class="quick-access-icon green">
+                    <i class="fa-solid fa-calendar-plus"></i>
+                  </span>
+
+                  <span class="quick-access-content">
+                    <strong>Appointments</strong>
+                    <small>Book or manage appointments</small>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  class="quick-access-item"
+                  onclick="
+                    window.location.href =
+                      '../medical_records/medical_records.html'
+                  "
+                >
+                  <span class="quick-access-icon blue">
+                    <i class="fa-solid fa-file-medical"></i>
+                  </span>
+
+                  <span class="quick-access-content">
+                    <strong>Dental Records</strong>
+                    <small>View your treatment records</small>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  class="quick-access-item"
+                  onclick="window.location.href = '../payments/payments.html'"
+                >
+                  <span class="quick-access-icon amber">
+                    <i class="fa-solid fa-wallet"></i>
+                  </span>
+
+                  <span class="quick-access-content">
+                    <strong>Payments</strong>
+                    <small>Check your payment balance</small>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="../navigation_bar/sidebar.js"></script>
+    <script src="dashboard.js"></script>
+  </body>
+</html>
