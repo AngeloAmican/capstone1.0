@@ -232,6 +232,111 @@
     return Math.max(0, average);
   }
 
+  function calculateMAPE(actualValues, predictedValues) {
+    if (
+      !Array.isArray(actualValues) ||
+      !Array.isArray(predictedValues) ||
+      actualValues.length === 0 ||
+      actualValues.length !== predictedValues.length
+    ) {
+      return null;
+    }
+
+    const validPairs = actualValues
+      .map((actual, index) => ({
+        actual: Number(actual),
+        predicted: Number(predictedValues[index]),
+      }))
+      .filter(
+        (pair) =>
+          Number.isFinite(pair.actual) &&
+          Number.isFinite(pair.predicted) &&
+          pair.actual !== 0,
+      );
+
+    if (!validPairs.length) {
+      return null;
+    }
+
+    return (
+      (validPairs.reduce(
+        (sum, pair) =>
+          sum + Math.abs((pair.actual - pair.predicted) / pair.actual),
+        0,
+      ) /
+        validPairs.length) *
+      100
+    );
+  }
+
+  function calculateRMSE(actualValues, predictedValues) {
+    if (
+      !Array.isArray(actualValues) ||
+      !Array.isArray(predictedValues) ||
+      actualValues.length === 0 ||
+      actualValues.length !== predictedValues.length
+    ) {
+      return null;
+    }
+
+    const validPairs = actualValues
+      .map((actual, index) => ({
+        actual: Number(actual),
+        predicted: Number(predictedValues[index]),
+      }))
+      .filter(
+        (pair) =>
+          Number.isFinite(pair.actual) && Number.isFinite(pair.predicted),
+      );
+
+    if (!validPairs.length) {
+      return null;
+    }
+
+    const meanSquaredError =
+      validPairs.reduce(
+        (sum, pair) => sum + Math.pow(pair.actual - pair.predicted, 2),
+        0,
+      ) / validPairs.length;
+
+    return Math.sqrt(meanSquaredError);
+  }
+
+  function evaluateMovingAverage(values, windowSize = DEFAULT_WINDOW) {
+    if (!Array.isArray(values)) {
+      return { actual: [], predictions: [], mape: null, rmse: null };
+    }
+
+    const numericValues = values
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value));
+    const predictions = [];
+    const actual = [];
+
+    // Use an expanding warm-up window until the selected SMA window is reached.
+    for (let index = 1; index < numericValues.length; index += 1) {
+      const history = numericValues.slice(0, index);
+      const prediction = forecastNextPeriod(
+        history,
+        Math.min(Number(windowSize) || DEFAULT_WINDOW, history.length),
+      );
+
+      if (prediction === null) {
+        continue;
+      }
+
+      predictions.push(prediction);
+      actual.push(numericValues[index]);
+    }
+
+    return {
+      actual,
+      predictions,
+      mape: calculateMAPE(actual, predictions),
+      rmse: calculateRMSE(actual, predictions),
+    };
+  }
+
   function roundForecast(value) {
     if (!Number.isFinite(Number(value))) {
       return null;
@@ -413,6 +518,9 @@
     calculateMovingAverage,
     calculateMovingAverageSeries,
     forecastNextPeriod,
+    calculateMAPE,
+    calculateRMSE,
+    evaluateMovingAverage,
     roundForecast,
     buildMovingAverageResult,
     getItemMovingAverage,

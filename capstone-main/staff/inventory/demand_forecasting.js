@@ -4,7 +4,8 @@
   const ITEMS_KEY = "dentanueva_inventory_items";
   const MOVEMENTS_KEY = "dentanueva_inventory_movements";
 
-  const MOVING_AVERAGE_WINDOW = 3;
+  const MOVING_AVERAGE_WINDOW = 4;
+  const DEFAULT_DEMAND_PERIOD = "week";
   const MINIMUM_RECORDS_FOR_ML = 8;
   const TRAINING_RATIO = 0.8;
   const EPOCHS = 80;
@@ -17,6 +18,8 @@
   let forecastChartInstance = null;
   let forecastChartResults = [];
   let forecastChartSelectedItemId = "";
+  let demandPeriod = DEFAULT_DEMAND_PERIOD;
+  let demandWindow = MOVING_AVERAGE_WINDOW;
 
   function getItems() {
     try {
@@ -176,8 +179,36 @@
     return series;
   }
 
-  function getDemandSeries(itemId) {
-    return getDailyDemandSeries(itemId);
+  function getDemandSeries(itemId, period = demandPeriod) {
+    const dailySeries = getDailyDemandSeries(itemId);
+
+    if (period !== "week") {
+      return dailySeries;
+    }
+
+    const weeklyTotals = new Map();
+
+    dailySeries.forEach((entry) => {
+      const date = parseDateKey(entry.date);
+
+      if (!date) {
+        return;
+      }
+
+      const dayOfWeek = date.getDay();
+      const daysFromMonday = (dayOfWeek + 6) % 7;
+      date.setDate(date.getDate() - daysFromMonday);
+
+      const weekKey = formatDateKey(date);
+      weeklyTotals.set(
+        weekKey,
+        (weeklyTotals.get(weekKey) || 0) + Number(entry.value || 0),
+      );
+    });
+
+    return [...weeklyTotals.entries()]
+      .sort(([firstDate], [secondDate]) => firstDate.localeCompare(secondDate))
+      .map(([date, value]) => ({ date, value }));
   }
 
   function normalizeSeries(values) {
@@ -348,8 +379,11 @@
     };
   }
 
-  function calculateSMABaseline(values) {
-    if (!Array.isArray(values) || values.length < MOVING_AVERAGE_WINDOW + 1) {
+  function calculateSMABaseline(values, windowSize = demandWindow) {
+    if (
+      !window.DentaNuevaMovingAverage ||
+      typeof window.DentaNuevaMovingAverage.evaluateMovingAverage !== "function"
+    ) {
       return {
         predictions: [],
         actual: [],
@@ -358,35 +392,10 @@
       };
     }
 
-    const trainingLength = Math.max(
-      MOVING_AVERAGE_WINDOW,
-      Math.floor(values.length * TRAINING_RATIO),
+    return window.DentaNuevaMovingAverage.evaluateMovingAverage(
+      values,
+      windowSize,
     );
-
-    if (trainingLength >= values.length) {
-      return {
-        predictions: [],
-        actual: [],
-        mape: null,
-        rmse: null,
-      };
-    }
-
-    const trainingValues = values.slice(0, trainingLength);
-    const actualValues = values.slice(trainingLength);
-
-    const result = calculateMovingAveragePrediction(
-      trainingValues,
-      actualValues,
-      MOVING_AVERAGE_WINDOW,
-    );
-
-    return {
-      predictions: result.predictions,
-      actual: actualValues.slice(0, result.predictions.length),
-      mape: result.mape,
-      rmse: result.rmse,
-    };
   }
 
   async function trainMLModel(values) {
@@ -533,7 +542,7 @@
   }
 
   async function forecastItem(itemId) {
-    const demandSeries = getDemandSeries(itemId);
+    const demandSeries = getDemandSeries(itemId, demandPeriod);
     const values = demandSeries.map((entry) => Number(entry.value));
 
     const movingAverage =
@@ -542,19 +551,21 @@
         "function"
         ? window.DentaNuevaMovingAverage.buildMovingAverageResult(
             values,
-            MOVING_AVERAGE_WINDOW,
+            demandWindow,
           )
         : null;
 
     const smaEvaluation = calculateSMABaseline(values);
 
-    if (values.length < MINIMUM_RECORDS_FOR_ML) {
+    const smaReady = Boolean(movingAverage && movingAverage.available);
+
+    if (!smaReady) {
       return {
         ready: false,
         reason: "insufficient-data",
         itemId,
         records: values.length,
-        requiredRecords: MINIMUM_RECORDS_FOR_ML,
+        requiredRecords: Math.max(3, demandWindow),
         movingAverage,
         sma: smaEvaluation,
         ml: null,
@@ -562,36 +573,17 @@
       };
     }
 
-    try {
-      const mlResult = await trainMLModel(values);
-
-      return {
-        ready: Boolean(mlResult),
-        reason: mlResult ? "ready" : "insufficient-data",
-        itemId,
-        records: values.length,
-        requiredRecords: MINIMUM_RECORDS_FOR_ML,
-        movingAverage,
-        sma: smaEvaluation,
-        ml: mlResult,
-        demandSeries,
-      };
-    } catch (error) {
-      console.error(`Unable to generate forecast for item ${itemId}:`, error);
-
-      return {
-        ready: false,
-        reason: "model-error",
-        itemId,
-        records: values.length,
-        requiredRecords: MINIMUM_RECORDS_FOR_ML,
-        movingAverage,
-        sma: smaEvaluation,
-        ml: null,
-        demandSeries,
-        error: error.message,
-      };
-    }
+    return {
+      ready: true,
+      reason: "ready",
+      itemId,
+      records: values.length,
+      requiredRecords: Math.max(3, demandWindow),
+      movingAverage,
+      sma: smaEvaluation,
+      ml: null,
+      demandSeries,
+    };
   }
 
   async function forecastAllItems() {
@@ -860,35 +852,15 @@
       });
     }
 
-    const mlData = new Array(demandSeries.length).fill(null);
-
-    if (
-      result.ml &&
-      Array.isArray(result.ml.testPredictions) &&
-      result.ml.testPredictions.length
-    ) {
-      const mlStartIndex = Number.isInteger(result.ml.testStartIndex)
-        ? result.ml.testStartIndex
-        : Math.max(0, demandSeries.length - result.ml.testPredictions.length);
-
-      result.ml.testPredictions.forEach((prediction, index) => {
-        const targetIndex = mlStartIndex + index;
-
-        if (targetIndex < mlData.length) {
-          const numericPrediction = Number(prediction);
-
-          mlData[targetIndex] = Number.isFinite(numericPrediction)
-            ? Number(numericPrediction.toFixed(2))
-            : null;
-        }
-      });
-    }
+    const forecast = Number(result.movingAverage?.average);
+    const labelsWithForecast = [...labels, "Next period"];
+    const actualWithForecast = [...actualData, null];
+    const smaWithForecast = [...smaData, Number.isFinite(forecast) ? forecast : null];
 
     return {
-      labels,
-      actualData,
-      smaData,
-      mlData,
+      labels: labelsWithForecast,
+      actualData: actualWithForecast,
+      smaData: smaWithForecast,
     };
   }
 
@@ -987,16 +959,6 @@
             pointHoverRadius: 4,
             spanGaps: false,
           },
-          {
-            label: "ML Forecast",
-            data: chartData.mlData,
-            borderWidth: 2,
-            borderDash: [3, 3],
-            tension: 0.25,
-            pointRadius: 2,
-            pointHoverRadius: 4,
-            spanGaps: false,
-          },
         ],
       },
       options: {
@@ -1090,6 +1052,31 @@
     });
   }
 
+  function bindForecastControls() {
+    const periodSelect = document.getElementById("forecastPeriod");
+    const windowSelect = document.getElementById("forecastWindow");
+
+    if (periodSelect && periodSelect.dataset.bound !== "true") {
+      periodSelect.dataset.bound = "true";
+      periodSelect.value = demandPeriod;
+      periodSelect.addEventListener("change", () => {
+        demandPeriod = periodSelect.value === "day" ? "day" : "week";
+        demandForecastCurrentPage = 1;
+        refreshDemandForecast();
+      });
+    }
+
+    if (windowSelect && windowSelect.dataset.bound !== "true") {
+      windowSelect.dataset.bound = "true";
+      windowSelect.value = String(demandWindow);
+      windowSelect.addEventListener("change", () => {
+        demandWindow = Math.max(1, Number(windowSelect.value) || MOVING_AVERAGE_WINDOW);
+        demandForecastCurrentPage = 1;
+        refreshDemandForecast();
+      });
+    }
+  }
+
   async function renderDemandForecastTable() {
     const tableBody = document.getElementById("demandForecastTableBody");
     const emptyState = document.getElementById("demandForecastEmpty");
@@ -1181,38 +1168,32 @@
     pageResults.forEach((result) => {
       const item = result.item;
 
-      const movingAverage =
+      const smaForecast =
         result.movingAverage &&
         Number.isFinite(Number(result.movingAverage.average))
           ? Number(result.movingAverage.average)
           : null;
 
       const smaMAPE =
-        result.sma && Number.isFinite(Number(result.sma.mape))
+        result.sma?.mape != null && Number.isFinite(Number(result.sma.mape))
           ? Number(result.sma.mape)
           : null;
 
       const smaRMSE =
-        result.sma && Number.isFinite(Number(result.sma.rmse))
+        result.sma?.rmse != null && Number.isFinite(Number(result.sma.rmse))
           ? Number(result.sma.rmse)
           : null;
 
-      const mlForecast =
-        result.ml && Number.isFinite(Number(result.ml.nextForecast))
-          ? Number(result.ml.nextForecast)
-          : null;
+      const latestActual = result.demandSeries?.length
+        ? Number(result.demandSeries[result.demandSeries.length - 1].value)
+        : null;
 
-      const mlMAPE =
-        result.ml && Number.isFinite(Number(result.ml.mape))
-          ? Number(result.ml.mape)
-          : null;
-
-      const mlRMSE =
-        result.ml && Number.isFinite(Number(result.ml.rmse))
-          ? Number(result.ml.rmse)
-          : null;
-
-      const status = getDemandForecastStatus(result);
+      const onHand = Number(item.stock) || 0;
+      const status = !result.ready
+        ? "Insufficient Data"
+        : onHand < Number(smaForecast || 0)
+          ? "Restock Needed"
+          : "Sufficient Stock";
 
       const row = document.createElement("tr");
 
@@ -1236,7 +1217,7 @@
         </td>
         <td>
           <span class="forecast-average">
-            ${movingAverage === null ? "—" : formatMetric(movingAverage)}
+            ${smaForecast === null ? "—" : formatForecast(smaForecast)}
           </span>
           <span class="forecast-unit">
             ${escapeHTML(item.unit || "")}
@@ -1249,12 +1230,12 @@
         </td>
         <td>
           <span class="forecast-number">
-            ${formatMetric(smaRMSE)}
+            ${smaRMSE === null ? "—" : formatMetric(smaRMSE)}
           </span>
         </td>
         <td>
           <span class="forecast-estimate">
-            ${mlForecast === null ? "—" : formatForecast(mlForecast)}
+            ${Number.isFinite(latestActual) ? formatMetric(latestActual) : "—"}
           </span>
           <span class="forecast-unit">
             ${escapeHTML(item.unit || "")}
@@ -1262,17 +1243,12 @@
         </td>
         <td>
           <span class="forecast-number">
-            ${mlMAPE === null ? "—" : `${formatMetric(mlMAPE)}%`}
+            ${onHand}
           </span>
         </td>
         <td>
           <span class="forecast-number">
-            ${formatMetric(mlRMSE)}
-          </span>
-        </td>
-        <td>
-          <span class="forecast-number">
-            ${escapeHTML(status)}
+            <span class="forecast-status ${status === "Restock Needed" ? "forecast-status-restock" : status === "Sufficient Stock" ? "forecast-status-sufficient" : "forecast-status-unavailable"}">${escapeHTML(status)}</span>
           </span>
         </td>
       `;
@@ -1395,6 +1371,7 @@
     bindDemandForecastSearch();
     bindDemandForecastPagination();
     bindForecastChartSelect();
+    bindForecastControls();
     refreshDemandForecast();
   };
 

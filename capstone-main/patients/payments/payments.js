@@ -1365,38 +1365,41 @@ function renderPatientPaymentVerificationContent(method) {
     </div>
   `;
   if (method === "GCash") {
+    const configured = window.DentaNuevaPaymentService?.getMethods().gcash || {};
+    const qrMarkup = configured.qrData
+      ? `<img src="${escapeHtml(configured.qrData)}" alt="${escapeHtml(configured.label || "GCash QR")}" />`
+      : '<i class="fa-solid fa-qrcode"></i>';
     elements.box.insertAdjacentHTML(
       "beforeend",
       `
         <div class="patient-payment-verification-qr">
           <div class="patient-payment-verification-qr-box">
-            <i class="fa-solid fa-qrcode"></i>
+            ${qrMarkup}
           </div>
-          <strong>Clinic GCash QR</strong>
+          <strong>${escapeHtml(configured.label || "GCash QR")}</strong>
           <span>
-            Scan the clinic's GCash QR code to make your payment.
+            Scan the configured GCash QR code to make your payment.
           </span>
         </div>
       `,
     );
   }
   if (method === "Bank Transfer") {
+    const banks = window.DentaNuevaPaymentService?.getMethods().banks || [];
+    const bankMarkup = banks.length
+      ? banks
+          .map(
+            (bank) => `
+              <div><span>${escapeHtml(bank.name || "Bank")}</span><strong>${escapeHtml(bank.accountName || "")} · ${escapeHtml(bank.accountNumber || "")}</strong></div>
+            `,
+          )
+          .join("")
+      : "<div><span>Bank account</span><strong>No bank account configured yet.</strong></div>";
     elements.box.insertAdjacentHTML(
       "beforeend",
       `
         <div class="patient-payment-verification-bank">
-          <div>
-            <span>Account Name</span>
-            <strong>DentaNueva Dental Clinic</strong>
-          </div>
-          <div>
-            <span>Bank</span>
-            <strong>DentaNueva Partner Bank</strong>
-          </div>
-          <div>
-            <span>Account Number</span>
-            <strong>XXXX-XXXX-XXXX</strong>
-          </div>
+          ${bankMarkup}
         </div>
       `,
     );
@@ -1704,13 +1707,14 @@ function updatePatientPaySubmitState() {
 function getCurrentPayRemainingBalance() {
   return currentPayTransaction ? Number(currentPayTransaction.balance) || 0 : 0;
 }
-function submitPatientPayment() {
+async function submitPatientPayment() {
   if (!currentPayTransaction) {
     return;
   }
   const amountInput = document.getElementById("patientPayAmount");
   const methodInput = document.getElementById("patientPayMethod");
   const notesInput = document.getElementById("patientPayNotes");
+  const proofInput = document.getElementById("patientPayProof");
   const amount = Number(amountInput?.value) || 0;
   const method = methodInput?.value || "";
   const notes = notesInput?.value.trim() || "";
@@ -1739,172 +1743,38 @@ function submitPatientPayment() {
     showPaymentMessage("Please complete the payment process first.");
     return;
   }
-  let financeTransactions = [];
-  try {
-    const stored = localStorage.getItem(FINANCE_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        financeTransactions = parsed;
-      }
-    }
-  } catch (error) {
-    financeTransactions = [];
-  }
-  const transactionIndex = financeTransactions.findIndex(
-    function (transaction) {
-      return (
-        String(transaction.id || "") ===
-        String(currentPayTransaction.transactionId || "")
-      );
-    },
-  );
-  if (transactionIndex === -1) {
-    showPaymentMessage("The Finance transaction could not be found.");
+  if (!proofInput?.files?.length) {
+    showPaymentMessage("Please upload the payment screenshot.");
     return;
   }
-  const transaction = financeTransactions[transactionIndex];
-  if (String(transaction.patientId || "").trim() !== CURRENT_PATIENT_ID) {
-    showPaymentMessage(
-      "This transaction does not belong to the current patient account.",
-    );
+  const transaction = currentPayTransaction;
+  const file = proofInput.files[0];
+  const proofData = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const service = window.DentaNuevaPaymentService;
+  if (!service) {
+    showPaymentMessage("Payment service is unavailable. Please reload the page.");
     return;
   }
-  const total = Number(transaction.total) || 0;
-  const discount = Number(transaction.discount) || 0;
-  const transactionTotal = Math.max(total - discount, 0);
-  const history = Array.isArray(transaction.paymentHistory)
-    ? [...transaction.paymentHistory]
-    : [];
-  const currentPaid = Number(transaction.paid) || 0;
-  const actualRemaining = Math.max(transactionTotal - currentPaid, 0);
-  if (actualRemaining <= 0) {
-    showPaymentMessage("This transaction has already been fully paid.");
-    closePatientPayModal();
-    syncPaymentsFromFinance();
-    renderPayments();
-    return;
-  }
-  if (paymentAmount > actualRemaining) {
-    showPaymentMessage(
-      "The payment amount is greater than the remaining balance.",
-    );
-    return;
-  }
-  const now = new Date();
-  const paymentId = `${
-    transaction.id || "TXN"
-  }-PAY-${history.length + 1}-${Date.now()}`;
-  const newHistoryPayment = {
-    id: paymentId,
+  service.createRequest({
+    transactionId: transaction.transactionId,
     patientId: CURRENT_PATIENT_ID,
     patientName: transaction.patientName || CURRENT_PATIENT_NAME,
-    transactionId: transaction.id || "",
-    date: now.toISOString(),
-    service: transaction.service || "Dental Service",
-    amount: paymentAmount,
+    doctorId: transaction.doctorId || transaction.dentistId || "",
+    doctorName: transaction.doctorName || transaction.dentistName || "Doctor",
+    claimedAmount: paymentAmount,
     paymentMethod: method,
     reference: getPaymentReference(),
-    notes: notes,
-    createdTime: now.toTimeString().slice(0, 8),
-    createdAt: now.toISOString(),
-  };
-  if (method === "Cash") {
-    const cashReceived =
-      Number(
-        document.getElementById("patientVerificationAmountReceived")?.value,
-      ) || 0;
-    const actualCashPayment = Math.min(cashReceived, actualRemaining);
-    newHistoryPayment.amount = actualCashPayment;
-    newHistoryPayment.cashReceived = cashReceived;
-    newHistoryPayment.change = Math.max(cashReceived - actualRemaining, 0);
-  }
-  if (method === "GCash") {
-    newHistoryPayment.gcashReference =
-      document
-        .getElementById("patientVerificationGcashReference")
-        ?.value.trim() || "";
-  }
-  if (method === "Bank Transfer") {
-    newHistoryPayment.bankReference =
-      document
-        .getElementById("patientVerificationBankReference")
-        ?.value.trim() || "";
-  }
-  if (method === "Card") {
-    newHistoryPayment.cardReference =
-      document
-        .getElementById("patientVerificationCardReference")
-        ?.value.trim() || "";
-  }
-  history.push(newHistoryPayment);
-  const newPaid = Math.min(transactionTotal, currentPaid + paymentAmount);
-  const newBalance = Math.max(transactionTotal - newPaid, 0);
-  transaction.paymentHistory = history;
-  transaction.paid = newPaid;
-  transaction.balance = newBalance;
-  transaction.paymentMethod = method;
-  transaction.updatedAt = now.toISOString();
-  transaction.updatedTime = now.toTimeString().slice(0, 8);
-  if (newBalance <= 0) {
-    transaction.status = "Paid";
-  } else if (newPaid > 0) {
-    transaction.status = "Partial";
-  } else {
-    transaction.status = "Pending";
-  }
-  financeTransactions[transactionIndex] = transaction;
-  try {
-    localStorage.setItem(
-      FINANCE_STORAGE_KEY,
-      JSON.stringify(financeTransactions),
-    );
-  } catch (error) {
-    showPaymentMessage("Unable to save the payment. Please try again.");
-    return;
-  }
-  const savedPayment = normalizePayment({
-    id: newHistoryPayment.id,
-    patientId: CURRENT_PATIENT_ID,
-    patientName: transaction.patientName || CURRENT_PATIENT_NAME,
-    transactionId: transaction.id || "",
-    date: newHistoryPayment.date,
-    service: transaction.service || "Dental Service",
-    amount: newHistoryPayment.amount,
-    totalCharge: total,
-    discount: discount,
-    paymentMethod: method,
-    status: newBalance <= 0 ? "paid" : "partial",
-    reference: newHistoryPayment.reference,
-    notes: notes,
-    createdTime: newHistoryPayment.createdTime,
-    createdAt: newHistoryPayment.createdAt,
-    cashReceived: newHistoryPayment.cashReceived,
-    change: newHistoryPayment.change,
-    gcashReference: newHistoryPayment.gcashReference,
-    bankReference: newHistoryPayment.bankReference,
-    cardReference: newHistoryPayment.cardReference,
-  });
-  payments.unshift(savedPayment);
-  savePayments();
-  syncPaymentsFromFinance();
-  renderPayments();
-  const updatedGroup = getTransactionGroup(transaction.id);
-  const updatedPayment = payments.find(function (payment) {
-    return String(payment.id) === String(savedPayment.id);
+    notes,
+    proofData,
+    proofName: file.name,
   });
   closePatientPayModal();
-  showPaymentMessage(
-    updatedGroup && updatedGroup.balance > 0
-      ? "Payment recorded successfully. Remaining balance: " +
-          formatCurrency(updatedGroup.balance)
-      : "Payment recorded successfully. Transaction fully paid.",
-  );
-  if (updatedPayment) {
-    setTimeout(function () {
-      openReceiptModal(updatedPayment);
-    }, 350);
-  }
+  showPaymentMessage("Payment submitted for staff verification.");
 }
 function getPaymentReference() {
   const method = document.getElementById("patientPayMethod")?.value || "";

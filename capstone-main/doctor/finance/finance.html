@@ -104,6 +104,22 @@
             </div>
           </article>
         </section>
+        <section class="content-card payment-methods-card">
+          <div class="chart-header">
+            <div>
+              <h2>Payment Methods</h2>
+              <p>Configure the GCash QR and bank accounts patients can use.</p>
+            </div>
+          </div>
+          <div class="payment-methods-form">
+            <label><input type="checkbox" id="doctorGcashEnabled" checked /> Enable GCash QR</label>
+            <input type="text" id="doctorGcashLabel" placeholder="GCash account label" />
+            <input type="url" id="doctorGcashQr" placeholder="QR image URL" />
+            <div id="doctorBankAccounts"></div>
+            <button type="button" class="primary-btn" id="addDoctorBankBtn"><i class="fa-solid fa-plus"></i> Add Bank Account</button>
+            <button type="button" class="header-action-btn" id="saveDoctorPaymentMethods">Save Payment Methods</button>
+          </div>
+        </section>
         <section class="content-card transactions-card">
           <div class="transaction-filters">
             <div class="search-wrapper">
@@ -414,6 +430,7 @@
     </div>
     <script src="../navigationbar/sidebar.js"></script>
     <script src="../profile/profile.js"></script>
+    <script src="../../shared/payments/payment_service.js"></script>
     <script src="finance.js"></script>
   </body>
 </html>

@@ -20,7 +20,6 @@
   </head>
   <body>
     <div id="sidebar-container"></div>
-
     <main class="inventory-main">
       <div class="inventory-page">
         <section class="inventory-panel">
@@ -36,11 +35,19 @@
                   <p>View and manage your dental supplies.</p>
                 </div>
               </div>
-
               <div class="panel-header-right">
                 <span class="item-count" id="itemCount">0 items</span>
-
                 <div class="inventory-header-actions">
+                  <button
+                    type="button"
+                    class="btn-secondary inventory-notification-btn"
+                    id="inventoryNotificationBtn"
+                    aria-label="Treatment stock notifications"
+                  >
+                    <i class="fa-regular fa-bell"></i>
+                    <span>Notifications</span>
+                    <strong id="inventoryNotificationCount" hidden>0</strong>
+                  </button>
                   <button
                     type="button"
                     class="btn-secondary"
@@ -49,7 +56,6 @@
                     <i class="fa-solid fa-right-left"></i>
                     <span>Stock Movement</span>
                   </button>
-
                   <button type="button" class="btn-primary" id="addItemBtn">
                     <i class="fa-solid fa-plus"></i>
                     <span>Add Item</span>
@@ -57,7 +63,6 @@
                 </div>
               </div>
             </div>
-
             <div class="inventory-toolbar">
               <div class="search-wrapper">
                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -68,18 +73,15 @@
                   autocomplete="off"
                 />
               </div>
-
               <select id="categoryFilter" class="filter-select">
                 <option value="all">All Categories</option>
               </select>
-
               <select id="statusFilter" class="filter-select">
                 <option value="all">All Stock Status</option>
                 <option value="normal">Normal</option>
                 <option value="low">Low Stock</option>
                 <option value="out">Out of Stock</option>
               </select>
-
               <select id="expiryFilter" class="filter-select">
                 <option value="all">All Expiry Status</option>
                 <option value="no-expiry">No Expiry</option>
@@ -87,7 +89,6 @@
                 <option value="expiring-soon">Expiring Soon</option>
                 <option value="expired">Expired</option>
               </select>
-
               <select id="sortFilter" class="filter-select">
                 <option value="name-asc">Name A–Z</option>
                 <option value="name-desc">Name Z–A</option>
@@ -97,7 +98,6 @@
                 <option value="id-asc">ID Low–High</option>
               </select>
             </div>
-
             <div class="table-wrapper">
               <table class="inventory-table">
                 <thead>
@@ -114,26 +114,21 @@
                 </thead>
                 <tbody id="inventoryTableBody"></tbody>
               </table>
-
               <div class="empty-state" id="emptyState" hidden>
                 <div class="empty-icon">
                   <i class="fa-solid fa-box-open"></i>
                 </div>
-
                 <h3>No inventory items found</h3>
-
                 <p>
                   Try changing your search or filter, or add a new inventory
                   item.
                 </p>
-
                 <button type="button" class="btn-primary" id="emptyAddItemBtn">
                   <i class="fa-solid fa-plus"></i>
                   Add Item
                 </button>
               </div>
             </div>
-
             <div
               class="inventory-pagination"
               id="inventoryPagination"
@@ -145,7 +140,6 @@
               >
                 Showing 1–10 of 0 items
               </div>
-
               <div class="inventory-pagination-controls">
                 <button
                   type="button"
@@ -156,14 +150,12 @@
                   <i class="fa-solid fa-chevron-left"></i>
                   <span>Previous</span>
                 </button>
-
                 <span
                   class="inventory-pagination-page-info"
                   id="inventoryPaginationPageInfo"
                 >
                   Page 1 of 1
                 </span>
-
                 <button
                   type="button"
                   class="inventory-pagination-button"
@@ -176,7 +168,6 @@
               </div>
             </div>
           </div>
-
           <div
             class="inventory-page-section"
             id="inventoryPage2"
@@ -195,23 +186,38 @@
                     >
                     <h3>Demand Data and Forecast</h3>
                     <p>
-                      Shows the historical stock-out demand used by the
-                      forecasting models and their prediction results.
+                      Actual treatment consumption is grouped by time period
+                      and compared with the Simple Moving Average forecast.
                     </p>
                   </div>
-
-                  <div class="forecast-chart-select-wrapper">
-                    <label for="forecastChartItem">Select Item</label>
-                    <select id="forecastChartItem">
-                      <option value="">Select item</option>
-                    </select>
+                  <div class="forecast-chart-controls">
+                    <div class="forecast-chart-select-wrapper">
+                      <label for="forecastPeriod">Period</label>
+                      <select id="forecastPeriod">
+                        <option value="week" selected>Weekly</option>
+                        <option value="day">Daily</option>
+                      </select>
+                    </div>
+                    <div class="forecast-chart-select-wrapper">
+                      <label for="forecastWindow">SMA Window</label>
+                      <select id="forecastWindow">
+                        <option value="2">2 periods</option>
+                        <option value="3">3 periods</option>
+                        <option value="4" selected>4 periods</option>
+                        <option value="5">5 periods</option>
+                      </select>
+                    </div>
+                    <div class="forecast-chart-select-wrapper">
+                      <label for="forecastChartItem">Item</label>
+                      <select id="forecastChartItem">
+                        <option value="">Select item</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-
                 <div class="forecast-chart-container">
                   <canvas id="forecastDemandChart"></canvas>
                 </div>
-
                 <div
                   class="forecast-chart-empty"
                   id="forecastChartEmpty"
@@ -225,16 +231,14 @@
                   </p>
                 </div>
               </div>
-
               <div class="prototype-header">
                 <div class="prototype-header-content">
                   <h3>Inventory Demand Forecast</h3>
                   <p>
-                    Uses historical stock-out demand to compare a simple moving
-                    average baseline with the machine learning forecast.
+                    Uses actual treatment records and their material mapping to
+                    forecast the next period with Simple Moving Average.
                   </p>
                 </div>
-
                 <div class="forecast-header-search">
                   <i class="fa-solid fa-magnifying-glass"></i>
                   <input
@@ -245,26 +249,22 @@
                   />
                 </div>
               </div>
-
               <div class="forecast-table-wrapper">
                 <table class="forecast-table">
                   <thead>
                     <tr>
                       <th>ITEM</th>
-                      <th>RECORDS</th>
-                      <th>MOVING AVG.</th>
+                      <th>PERIODS</th>
+                      <th>SMA FORECAST</th>
                       <th>SMA MAPE</th>
                       <th>SMA RMSE</th>
-                      <th>ML FORECAST</th>
-                      <th>ML MAPE</th>
-                      <th>ML RMSE</th>
+                      <th>ACTUAL USED</th>
+                      <th>ON HAND</th>
                       <th>STATUS</th>
                     </tr>
                   </thead>
-
                   <tbody id="demandForecastTableBody"></tbody>
                 </table>
-
                 <div class="forecast-empty" id="demandForecastEmpty" hidden>
                   <i class="fa-solid fa-chart-line"></i>
                   <h3>No historical usage data</h3>
@@ -274,7 +274,6 @@
                   </p>
                 </div>
               </div>
-
               <div
                 class="forecast-pagination"
                 id="demandForecastPagination"
@@ -286,7 +285,6 @@
                 >
                   Showing 1–10 of 0 items
                 </div>
-
                 <div class="forecast-pagination-controls">
                   <button
                     type="button"
@@ -297,14 +295,12 @@
                     <i class="fa-solid fa-chevron-left"></i>
                     <span>Previous</span>
                   </button>
-
                   <span
                     class="forecast-pagination-page-info"
                     id="demandForecastPaginationPageInfo"
                   >
                     Page 1 of 1
                   </span>
-
                   <button
                     type="button"
                     class="forecast-pagination-button"
@@ -319,7 +315,6 @@
             </div>
           </div>
         </section>
-
         <div
           class="inventory-page-navigation"
           id="inventoryPageNavigation"
@@ -334,7 +329,6 @@
           >
             <span>1</span>
           </button>
-
           <button
             type="button"
             class="inventory-page-btn"
@@ -346,7 +340,30 @@
         </div>
       </div>
     </main>
-
+    <div
+      class="inventory-notification-popover"
+      id="inventoryNotificationPopover"
+      aria-hidden="true"
+    >
+      <div class="inventory-notification-header">
+        <div>
+          <span class="modal-eyebrow">INVENTORY ALERTS</span>
+          <h3>Treatment Stock-Outs</h3>
+        </div>
+        <button
+          type="button"
+          class="modal-close"
+          id="inventoryNotificationClose"
+          aria-label="Close"
+        >
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div
+        class="inventory-notification-list"
+        id="inventoryNotificationList"
+      ></div>
+    </div>
     <div class="modal-backdrop" id="itemModal" aria-hidden="true">
       <div class="modal-card">
         <div class="modal-header">
@@ -354,7 +371,6 @@
             <span class="modal-eyebrow">INVENTORY</span>
             <h3 id="itemModalTitle">Add Inventory Item</h3>
           </div>
-
           <button
             type="button"
             class="modal-close"
@@ -364,10 +380,8 @@
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
-
         <form id="itemForm">
           <input type="hidden" id="itemId" />
-
           <div class="form-grid">
             <div class="form-group form-full">
               <label for="itemName">Item Name</label>
@@ -378,10 +392,8 @@
                 required
               />
             </div>
-
             <div class="form-group">
               <label for="itemCategory">Category</label>
-
               <select id="itemCategory" required>
                 <option value="">Select category</option>
                 <option value="Restorative Materials">
@@ -400,7 +412,6 @@
                 <option value="Other">Other</option>
               </select>
             </div>
-
             <div class="form-group">
               <label for="itemUnit">Unit</label>
               <input
@@ -410,7 +421,6 @@
                 required
               />
             </div>
-
             <div class="form-group">
               <label for="itemStock">Current Stock</label>
               <input
@@ -423,7 +433,6 @@
                 required
               />
             </div>
-
             <div class="form-group">
               <label for="itemMinimum">Minimum Stock</label>
               <input
@@ -435,18 +444,15 @@
                 required
               />
             </div>
-
             <div class="form-group">
               <label for="itemExpiry">Expiry Date</label>
               <input type="date" id="itemExpiry" />
             </div>
           </div>
-
           <div class="modal-actions">
             <button type="button" class="btn-modal-cancel" id="itemCancelBtn">
               Cancel
             </button>
-
             <button type="submit" class="btn-primary">
               <i class="fa-solid fa-check"></i>
               Save Item
@@ -455,7 +461,6 @@
         </form>
       </div>
     </div>
-
     <div class="modal-backdrop" id="movementModal" aria-hidden="true">
       <div class="modal-card">
         <div class="modal-header">
@@ -463,7 +468,6 @@
             <span class="modal-eyebrow">STOCK MOVEMENT</span>
             <h3>Record Stock Movement</h3>
           </div>
-
           <button
             type="button"
             class="modal-close"
@@ -473,7 +477,6 @@
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
-
         <form id="movementForm">
           <div class="form-grid">
             <div class="form-group form-full">
@@ -482,7 +485,6 @@
                 <option value="">Select item</option>
               </select>
             </div>
-
             <div class="form-group">
               <label for="movementType">Movement Type</label>
               <select id="movementType" required>
@@ -490,7 +492,6 @@
                 <option value="stock-out">Stock Out</option>
               </select>
             </div>
-
             <div class="form-group">
               <label for="movementQuantity">Quantity</label>
               <input
@@ -502,7 +503,6 @@
                 required
               />
             </div>
-
             <div class="form-group form-full">
               <label for="movementReason">Reason</label>
               <input
@@ -512,7 +512,6 @@
               />
             </div>
           </div>
-
           <div class="modal-actions">
             <button
               type="button"
@@ -521,7 +520,6 @@
             >
               Cancel
             </button>
-
             <button type="submit" class="btn-primary">
               <i class="fa-solid fa-right-left"></i>
               Record Movement
@@ -530,13 +528,11 @@
         </form>
       </div>
     </div>
-
     <div class="modal-backdrop" id="deleteItemModal" aria-hidden="true">
       <div class="modal-card delete-item-modal-card">
         <div class="delete-item-icon">
           <i class="fa-solid fa-trash"></i>
         </div>
-
         <div class="delete-item-content">
           <span class="modal-eyebrow">INVENTORY</span>
           <h3>Delete Inventory Item?</h3>
@@ -545,7 +541,6 @@
             removed.
           </p>
         </div>
-
         <div class="modal-actions delete-item-actions">
           <button
             type="button"
@@ -554,7 +549,6 @@
           >
             Cancel
           </button>
-
           <button type="button" class="btn-danger" id="deleteItemConfirmBtn">
             <i class="fa-solid fa-trash"></i>
             Delete
@@ -562,7 +556,6 @@
         </div>
       </div>
     </div>
-
     <div class="modal-backdrop" id="viewItemModal" aria-hidden="true">
       <div class="modal-card view-item-modal-card">
         <div class="modal-header">
@@ -570,7 +563,6 @@
             <span class="modal-eyebrow">INVENTORY</span>
             <h3>Inventory Item Details</h3>
           </div>
-
           <button
             type="button"
             class="modal-close"
@@ -580,9 +572,7 @@
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
-
         <div class="view-item-details" id="viewItemDetails"></div>
-
         <div class="modal-actions">
           <button type="button" class="btn-modal-cancel" id="viewItemCloseBtn">
             Close
@@ -590,40 +580,33 @@
         </div>
       </div>
     </div>
-
     <div class="action-menu" id="actionMenu">
       <button type="button" data-action="view">
         <i class="fa-solid fa-eye"></i>
         View Item
       </button>
-
       <button type="button" data-action="edit">
         <i class="fa-solid fa-pen"></i>
         Edit Item
       </button>
-
       <button type="button" data-action="movement">
         <i class="fa-solid fa-right-left"></i>
         Stock Movement
       </button>
-
       <button type="button" class="danger-action" data-action="delete">
         <i class="fa-solid fa-trash"></i>
         Delete Item
       </button>
     </div>
-
     <div class="inventory-toast" id="inventoryToast">
       <i id="inventoryToastIcon" class="fa-solid fa-circle-check"></i>
       <span id="inventoryToastMessage">Inventory updated successfully.</span>
     </div>
-
     <script src="../../navigation_bar/sidebar.js"></script>
     <script src="../../shared/inventory/treatment_materials.js"></script>
     <script src="../../shared/inventory/inventory_service.js"></script>
     <script src="inventory.js"></script>
     <script src="moving_average.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="demand_forecasting.js"></script>
     <script src="../profile/profile.js"></script>

@@ -2974,8 +2974,7 @@ function buildTreatmentWorkspace(patient) {
             <input
               type="text"
               id="treatmentTooth"
-              placeholder="Example: 16"
-              maxlength="2"
+              placeholder="Example: 16 or 16, 17"
             />
           </div>
 
@@ -3036,6 +3035,20 @@ function buildTreatmentWorkspace(patient) {
               placeholder="Enter actual treatment performed, findings, materials used, or other clinical notes..."
             ></textarea>
           </div>
+
+          <div class="medical-result-item full treatment-materials-field">
+            <div class="treatment-materials-heading">
+              <span class="medical-result-label">ITEMS TO CONSUME</span>
+              <span class="treatment-materials-help">Review and adjust before saving</span>
+            </div>
+            <div id="treatmentMaterialsList" class="treatment-materials-list">
+              <div class="treatment-materials-empty">Select a treatment to load suggested inventory items.</div>
+            </div>
+            <button type="button" class="treatment-add-material-btn" id="addTreatmentMaterialBtn">
+              <i class="fa-solid fa-plus"></i>
+              Add item
+            </button>
+          </div>
         </div>
 
         <div class="treatment-form-actions">
@@ -3078,6 +3091,13 @@ function buildTreatmentWorkspace(patient) {
                   const treatmentTime = treatment.createdAt || "";
 
                   const note = treatment.note || treatment.clinicalNote || "";
+                  const consumedMaterials = Array.isArray(
+                    treatment.consumedMaterials,
+                  )
+                    ? treatment.consumedMaterials.filter(
+                        (item) => Number(item.quantity) > 0,
+                      )
+                    : [];
 
                   return `
                     <div
@@ -3106,19 +3126,29 @@ function buildTreatmentWorkspace(patient) {
                               )}
                             </strong>
 
-                            ${
-                              tooth
-                                ? `<strong class="treatment-history-tooth">Tooth ${escapeHTML(tooth)}</strong>`
-                                : ""
-                            }
                           </div>
 
                       <div class="patient-record-appointment-info">
                         <strong>
                           ${escapeHTML(procedure)}
+                          ${
+                            tooth
+                              ? `<span class="treatment-history-tooth"> • Tooth ${escapeHTML(tooth)}</span>`
+                              : ""
+                          }
                         </strong>
 
                         ${note ? `<span>${escapeHTML(note)}</span>` : ""}
+                        ${
+                          consumedMaterials.length
+                            ? `<div class="treatment-consumed-summary"><i class="fa-solid fa-boxes-stacked"></i><span>${consumedMaterials
+                                .map(
+                                  (item) =>
+                                    `${escapeHTML(item.itemName || item.name || "Item")} × ${Number(item.quantity)}`,
+                                )
+                                .join(" · ")}</span></div>`
+                            : ""
+                        }
                       </div>
 
                       <div
@@ -3171,10 +3201,144 @@ function buildTreatmentWorkspace(patient) {
   `;
 }
 
+function getLocalDateKeyFromValue(value) {
+  const rawValue = String(value || "").trim();
+
+  if (!rawValue) {
+    return "";
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(rawValue)) {
+    return rawValue;
+  }
+
+  const parsedDate = new Date(rawValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return rawValue.slice(0, 10);
+  }
+
+  return [
+    parsedDate.getFullYear(),
+    String(parsedDate.getMonth() + 1).padStart(2, "0"),
+    String(parsedDate.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function getTreatmentAppointmentDate(appointment) {
+  return String(
+    appointment?.date ||
+      appointment?.appointmentDate ||
+      appointment?.appointment_date ||
+      appointment?.scheduleDate ||
+      "",
+  ).slice(0, 10);
+}
+
+function getTreatmentProcedureFromAppointment(appointment) {
+  const service = String(
+    appointment?.type ||
+      appointment?.service_type ||
+      appointment?.service ||
+      appointment?.reason ||
+      "",
+  ).trim();
+  const procedureMap = {
+    consultation: "Dental Consultation",
+    "dental cleaning": "Dental Cleaning",
+    "tooth filling / pasta": "Dental Filling",
+    "tooth extraction": "Tooth Extraction",
+    "root canal": "Root Canal Treatment",
+    "teeth whitening": "Dental Whitening",
+    "scaling and polishing": "Scaling and Polishing",
+    "oral prophylaxis": "Oral Prophylaxis",
+    "wisdom tooth extraction": "Wisdom Tooth Extraction",
+  };
+  return procedureMap[service.toLowerCase()] || service;
+}
+
+function getDentalChartEntriesForAppointment(patient, appointment) {
+  const appointmentDate = getTreatmentAppointmentDate(appointment);
+  const teeth = patient?.dentalChart?.teeth;
+  if (!appointmentDate || !teeth || typeof teeth !== "object") {
+    return [];
+  }
+
+  return Object.entries(teeth).flatMap(([toothNumber, record]) => {
+    const entries =
+      Array.isArray(record?.history) && record.history.length
+        ? record.history
+        : record?.procedure
+          ? [record]
+          : [];
+    return entries
+      .filter(
+        (entry) =>
+          getLocalDateKeyFromValue(entry.updatedAt) === appointmentDate,
+      )
+      .map((entry) => ({
+        toothNumber,
+        procedure: String(entry.procedure || record.procedure || "").trim(),
+        note: String(entry.note || record.note || "").trim(),
+      }));
+  });
+}
+
+function getUniqueDentalChartProcedures(entries) {
+  return [
+    ...new Set(
+      entries
+        .map((entry) => String(entry.procedure || "").trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+function getTreatmentMaterialsForProcedures(procedures) {
+  const inventoryService = window.DentaNuevaInventoryService;
+
+  if (!inventoryService) {
+    return [];
+  }
+
+  const mergedMaterials = new Map();
+
+  procedures.forEach((procedure) => {
+    inventoryService
+      .getTreatmentMaterialSuggestions(procedure)
+      .forEach((material) => {
+        const key = String(material.itemName || "")
+          .trim()
+          .toLowerCase();
+
+        if (!key) {
+          return;
+        }
+
+        const existing = mergedMaterials.get(key);
+
+        if (existing) {
+          existing.quantity += Number(material.quantity) || 0;
+          return;
+        }
+
+        mergedMaterials.set(key, {
+          ...material,
+          quantity: Number(material.quantity) || 0,
+        });
+      });
+  });
+
+  return [...mergedMaterials.values()];
+}
+
 function bindTreatmentWorkspace(patient) {
   const patientId = String(
     patient.patientId || patient.patient_id || patient.id || "",
   );
+  const patientAppointments = Array.isArray(patient.appointments)
+    ? patient.appointments
+    : [];
 
   const addButton = $("addTreatmentBtn");
   const workspace = $("treatmentWorkspace");
@@ -3184,6 +3348,8 @@ function bindTreatmentWorkspace(patient) {
   const procedureInput = $("treatmentProcedure");
   const suggestions = $("treatmentProcedureSuggestions");
   const noteInput = $("treatmentNote");
+  const materialsList = $("treatmentMaterialsList");
+  const addMaterialButton = $("addTreatmentMaterialBtn");
   const saveButton = $("saveTreatmentBtn");
   const cancelButton = $("cancelTreatmentBtn");
 
@@ -3196,6 +3362,8 @@ function bindTreatmentWorkspace(patient) {
     !procedureInput ||
     !suggestions ||
     !noteInput ||
+    !materialsList ||
+    !addMaterialButton ||
     !saveButton ||
     !cancelButton
   ) {
@@ -3242,6 +3410,115 @@ function bindTreatmentWorkspace(patient) {
 
   let editingTreatmentId = null;
 
+  const inventoryService = window.DentaNuevaInventoryService;
+
+  const getInventoryItems = () => {
+    try {
+      const parsed = JSON.parse(
+        localStorage.getItem("dentanueva_inventory_items") || "[]",
+      );
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  };
+
+  let inventoryDatalist = document.getElementById("treatmentInventoryItems");
+  if (!inventoryDatalist) {
+    inventoryDatalist = document.createElement("datalist");
+    inventoryDatalist.id = "treatmentInventoryItems";
+    document.body.appendChild(inventoryDatalist);
+  }
+  const inventoryItemNames = getInventoryItems().map((item) => item.name || "");
+  const treatmentMaterialNames =
+    window.DentaNuevaTreatmentItemCatalog ||
+    Object.values(window.DentaNuevaTreatmentMaterials || {}).flatMap(
+      (materials) => materials.flatMap((material) => material.names || []),
+    );
+  const treatmentItemCatalog = [
+    ...new Set(
+      [...inventoryItemNames, ...treatmentMaterialNames].filter(Boolean),
+    ),
+  ];
+  inventoryDatalist.innerHTML = treatmentItemCatalog
+    .map((itemName) => `<option value="${escapeHTML(itemName)}"></option>`)
+    .join("");
+
+  const renderMaterials = (materials) => {
+    if (!materials.length) {
+      materialsList.innerHTML = `<div class="treatment-materials-empty">No suggested items for this procedure. Add an item if needed.</div>`;
+      return;
+    }
+    materialsList.innerHTML = materials
+      .map(
+        (material) => `
+          <div class="treatment-material-row">
+            <div class="treatment-material-picker">
+              <input class="treatment-material-name" list="treatmentInventoryItems" value="${escapeHTML(material.itemName || "")}" placeholder="Type an inventory item..." autocomplete="off" />
+            </div>
+            <input class="treatment-material-quantity" type="number" min="0" step="1" value="${Number(material.quantity) || 0}" aria-label="Quantity" />
+            <span class="treatment-material-stock">${material.missing ? "Select an inventory item" : `${Number(material.available) || 0} ${escapeHTML(material.unit || "unit")} available`}</span>
+            <button type="button" class="treatment-remove-material-btn" aria-label="Remove item"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        `,
+      )
+      .join("");
+
+    materialsList
+      .querySelectorAll(".treatment-material-row")
+      .forEach((row) => refreshMaterialStock(row));
+  };
+
+  const getMaterialRows = () =>
+    [...materialsList.querySelectorAll(".treatment-material-row")]
+      .map((row) => ({
+        itemName:
+          row.querySelector(".treatment-material-name")?.value.trim() || "",
+        quantity: Math.max(
+          0,
+          Number(row.querySelector(".treatment-material-quantity")?.value) || 0,
+        ),
+      }))
+      .filter((material) => material.itemName && material.quantity > 0);
+
+  const refreshMaterialStock = (row) => {
+    const nameInput = row.querySelector(".treatment-material-name");
+    const stockLabel = row.querySelector(".treatment-material-stock");
+    const item = getInventoryItems().find(
+      (candidate) =>
+        String(candidate.name || "")
+          .trim()
+          .toLowerCase() ===
+        String(nameInput?.value || "")
+          .trim()
+          .toLowerCase(),
+    );
+
+    if (!stockLabel) return;
+    const itemName = String(nameInput?.value || "").trim();
+    stockLabel.textContent = item
+      ? `${Number(item.stock) || 0} ${item.unit || "unit"} available`
+      : itemName
+        ? "Not registered in inventory"
+        : "Select an inventory item";
+    stockLabel.classList.toggle("is-unavailable", !item);
+  };
+
+  const loadMaterialsForProcedure = (procedure) => {
+    const suggestions =
+      inventoryService?.getTreatmentMaterialSuggestions(procedure) || [];
+    renderMaterials(suggestions);
+  };
+
+  const loadMaterialsForProcedures = (procedures) => {
+    renderMaterials(getTreatmentMaterialsForProcedures(procedures));
+  };
+
+  const closeProcedureSuggestions = () => {
+    suggestions.innerHTML = "";
+    suggestions.hidden = true;
+  };
+
   const closeForm = () => {
     editingTreatmentId = null;
     workspace.hidden = true;
@@ -3250,7 +3527,8 @@ function bindTreatmentWorkspace(patient) {
     dateInput.value = getLocalDateString();
     procedureInput.value = "";
     noteInput.value = "";
-    suggestions.hidden = true;
+    renderMaterials([]);
+    closeProcedureSuggestions();
   };
 
   const showSuggestions = (value) => {
@@ -3286,7 +3564,8 @@ function bindTreatmentWorkspace(patient) {
     dateInput.value = getLocalDateString();
     procedureInput.value = "";
     noteInput.value = "";
-    suggestions.hidden = true;
+    renderMaterials([]);
+    closeProcedureSuggestions();
     procedureInput.focus();
   };
 
@@ -3311,20 +3590,52 @@ function bindTreatmentWorkspace(patient) {
 
     noteInput.value = treatment.note || treatment.clinicalNote || "";
 
-    suggestions.hidden = true;
+    renderMaterials(
+      Array.isArray(treatment.consumedMaterials)
+        ? treatment.consumedMaterials
+        : [],
+    );
+
+    closeProcedureSuggestions();
 
     procedureInput.focus();
   };
 
   addButton.addEventListener("click", openAddForm);
 
-  cancelButton.addEventListener("click", closeForm);
+  appointmentInput.addEventListener("change", () => {
+    const appointment = patientAppointments.find(
+      (item) =>
+        String(item.id || item.appointmentId || "") === appointmentInput.value,
+    );
+    if (!appointment) return;
+    dateInput.value =
+      getTreatmentAppointmentDate(appointment) || dateInput.value;
+    const chartEntries = getDentalChartEntriesForAppointment(
+      patient,
+      appointment,
+    );
+    if (chartEntries.length) {
+      const chartProcedures = getUniqueDentalChartProcedures(chartEntries);
 
-  procedureInput.addEventListener("input", () => {
-    showSuggestions(procedureInput.value);
-  });
+      toothInput.value = [
+        ...new Set(chartEntries.map((entry) => entry.toothNumber)),
+      ].join(", ");
+      procedureInput.value = chartProcedures.length
+        ? chartProcedures.join(" + ")
+        : getTreatmentProcedureFromAppointment(appointment);
+      noteInput.value = chartEntries
+        .map((entry) => entry.note)
+        .filter(Boolean)
+        .join("\n");
 
-  procedureInput.addEventListener("focus", () => {
+      loadMaterialsForProcedures(chartProcedures);
+    } else {
+      procedureInput.value = getTreatmentProcedureFromAppointment(appointment);
+      noteInput.value = "";
+      loadMaterialsForProcedure(procedureInput.value);
+    }
+    closeProcedureSuggestions();
     showSuggestions(procedureInput.value);
   });
 
@@ -3337,8 +3648,39 @@ function bindTreatmentWorkspace(patient) {
 
     procedureInput.value = button.dataset.treatmentProcedure || "";
 
-    suggestions.hidden = true;
-    procedureInput.focus();
+    closeProcedureSuggestions();
+    loadMaterialsForProcedure(procedureInput.value);
+  });
+
+  addMaterialButton.addEventListener("click", () => {
+    const currentMaterials = getMaterialRows();
+    currentMaterials.push({ itemName: "", quantity: 1 });
+    renderMaterials(currentMaterials);
+    materialsList
+      .querySelector(".treatment-material-name:last-of-type")
+      ?.focus();
+  });
+
+  materialsList.addEventListener("click", (event) => {
+    const removeButton = event.target.closest(".treatment-remove-material-btn");
+    if (!removeButton) return;
+    removeButton.closest(".treatment-material-row")?.remove();
+    if (!materialsList.querySelector(".treatment-material-row"))
+      renderMaterials([]);
+  });
+
+  materialsList.addEventListener("input", (event) => {
+    const row = event.target.closest(".treatment-material-row");
+    if (row && event.target.matches(".treatment-material-name")) {
+      refreshMaterialStock(row);
+    }
+  });
+
+  materialsList.addEventListener("change", (event) => {
+    const row = event.target.closest(".treatment-material-row");
+    if (row && event.target.matches(".treatment-material-name")) {
+      refreshMaterialStock(row);
+    }
   });
 
   const historyList = document.querySelector(".treatment-history-list");
@@ -3484,6 +3826,7 @@ function bindTreatmentWorkspace(patient) {
         procedure,
         note,
         date,
+        consumedMaterials: getMaterialRows(),
         updatedAt: now,
       };
     } else {
@@ -3495,16 +3838,21 @@ function bindTreatmentWorkspace(patient) {
         procedure,
         note,
         date,
+        consumedMaterials: getMaterialRows(),
         createdAt: now,
         updatedAt: now,
       };
 
-      const inventoryService = window.DentaNuevaInventoryService;
       const inventoryUsage = inventoryService
-        ? inventoryService.deductForTreatment(newTreatment, targetPatient)
+        ? inventoryService.deductForTreatment(
+            newTreatment,
+            targetPatient,
+            newTreatment.consumedMaterials,
+          )
         : {
             success: false,
-            message: "Inventory service is unavailable. Treatment was not saved.",
+            message:
+              "Inventory service is unavailable. Treatment was not saved.",
           };
 
       if (!inventoryUsage.success) {
@@ -3518,6 +3866,7 @@ function bindTreatmentWorkspace(patient) {
       newTreatment.inventoryMovementIds = inventoryUsage.movements.map(
         (movement) => movement.id,
       );
+      newTreatment.inventoryWarnings = inventoryUsage.unresolvedMaterials || [];
       targetPatient.treatments.push(newTreatment);
     }
 

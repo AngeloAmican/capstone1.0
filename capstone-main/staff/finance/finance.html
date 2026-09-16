@@ -186,6 +186,16 @@
             </div>
           </div>
         </section>
+        <section class="content-card pending-payments-card">
+          <div class="card-header">
+            <div class="card-heading">
+              <h2>Pending Payment Verification</h2>
+              <p>Compare the claimed amount with the uploaded proof.</p>
+            </div>
+            <span class="transaction-count" id="pendingPaymentCount">0 pending</span>
+          </div>
+          <div class="pending-payment-list" id="pendingPaymentList"></div>
+        </section>
       </main>
     </div>
     <div class="collection-drawer-overlay" id="collectionDrawerOverlay"></div>
@@ -831,6 +841,7 @@
       </div>
     </div>
     <script src="../../navigation_bar/sidebar.js"></script>
+    <script src="../../shared/payments/payment_service.js"></script>
     <script src="finance.js"></script>
     <script src="../profile/profile.js"></script>
   </body>

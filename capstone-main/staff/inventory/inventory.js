@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const ITEMS_KEY = "dentanueva_inventory_items";
   const MOVEMENTS_KEY = "dentanueva_inventory_movements";
+  const NOTIFICATIONS_KEY = "dentanueva_inventory_notifications";
   const RESET_VERSION_KEY = "dentanueva_inventory_reset_version";
   const RESET_VERSION = "inventory-reset-2026-08-16-v1";
   const INVENTORY_PAGE_SIZE = 10;
@@ -19,6 +20,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const addItemBtn = document.getElementById("addItemBtn");
   const emptyAddItemBtn = document.getElementById("emptyAddItemBtn");
   const stockMovementBtn = document.getElementById("stockMovementBtn");
+  const inventoryNotificationBtn = document.getElementById(
+    "inventoryNotificationBtn",
+  );
+  const inventoryNotificationCount = document.getElementById(
+    "inventoryNotificationCount",
+  );
+  const inventoryNotificationPopover = document.getElementById(
+    "inventoryNotificationPopover",
+  );
+  const inventoryNotificationClose = document.getElementById(
+    "inventoryNotificationClose",
+  );
+  const inventoryNotificationList = document.getElementById(
+    "inventoryNotificationList",
+  );
   const inventorySearch = document.getElementById("inventorySearch");
   const categoryFilter = document.getElementById("categoryFilter");
   const statusFilter = document.getElementById("statusFilter");
@@ -56,6 +72,105 @@ document.addEventListener("DOMContentLoaded", () => {
   let itemUnitManuallyEdited = false;
   let inventoryToastTimeout = null;
   let selectedDeleteItemId = null;
+
+  function getInventoryNotifications() {
+    try {
+      const parsed = JSON.parse(
+        localStorage.getItem(NOTIFICATIONS_KEY) || "[]",
+      );
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveInventoryNotifications(notifications) {
+    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications));
+  }
+
+  function renderInventoryNotifications() {
+    if (!inventoryNotificationList || !inventoryNotificationCount) return;
+
+    const notifications = getInventoryNotifications();
+    inventoryNotificationCount.textContent = notifications.length;
+    inventoryNotificationCount.hidden = notifications.length === 0;
+
+    inventoryNotificationList.innerHTML = notifications.length
+      ? notifications
+          .map(
+            (notification) => `
+              <article class="inventory-notification-card">
+                <div class="inventory-notification-card-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+                <div class="inventory-notification-card-body">
+                  <strong>Stock used for ${escapeHTML(notification.procedure || "Treatment")}</strong>
+                  <p><b>Patient:</b> ${escapeHTML(notification.patientName || "Patient")} ${notification.patientId ? `(${escapeHTML(notification.patientId)})` : ""}</p>
+                  <p><b>Date:</b> ${escapeHTML(notification.treatmentDate || "Not provided")}${notification.toothNumber ? ` · <b>Tooth:</b> ${escapeHTML(notification.toothNumber)}` : ""}</p>
+                  <div class="inventory-notification-items">
+                    ${(notification.items || [])
+                      .map((item) => {
+                        const status = item.status || "stock-out-completed";
+                        const statusLabel =
+                          status === "unregistered"
+                            ? "Not registered in inventory"
+                            : status === "insufficient-stock"
+                              ? `${Number(item.available) || 0} available only`
+                              : "Stock-out completed";
+                        const icon =
+                          status === "stock-out-completed"
+                            ? "fa-circle-check"
+                            : "fa-triangle-exclamation";
+                        return `<span class="inventory-notification-item-${status}"><i class="fa-solid ${icon}"></i>${escapeHTML(item.itemName || "Item")} · ${Number(item.quantity) || 0} ${escapeHTML(item.unit || "unit")} <small>${escapeHTML(statusLabel)}</small></span>`;
+                      })
+                      .join("")}
+                  </div>
+                  <button type="button" class="inventory-notification-confirm" data-notification-id="${escapeHTML(notification.id)}"><i class="fa-solid fa-check"></i> Confirm</button>
+                </div>
+              </article>
+            `,
+          )
+          .join("")
+      : `<div class="inventory-notification-empty"><i class="fa-regular fa-bell-slash"></i><strong>No unread notifications</strong><span>Confirmed treatment stock-outs will no longer appear here.</span></div>`;
+  }
+
+  function openInventoryNotifications() {
+    renderInventoryNotifications();
+    inventoryNotificationPopover?.classList.add("open");
+    inventoryNotificationPopover?.setAttribute("aria-hidden", "false");
+  }
+
+  function closeInventoryNotifications() {
+    inventoryNotificationPopover?.classList.remove("open");
+    inventoryNotificationPopover?.setAttribute("aria-hidden", "true");
+  }
+
+  inventoryNotificationBtn?.addEventListener(
+    "click",
+    openInventoryNotifications,
+  );
+  inventoryNotificationClose?.addEventListener(
+    "click",
+    closeInventoryNotifications,
+  );
+  inventoryNotificationList?.addEventListener("click", (event) => {
+    const confirmButton = event.target.closest("[data-notification-id]");
+    if (!confirmButton) return;
+    const notificationId = confirmButton.dataset.notificationId;
+    saveInventoryNotifications(
+      getInventoryNotifications().filter(
+        (notification) => String(notification.id) !== String(notificationId),
+      ),
+    );
+    renderInventoryNotifications();
+  });
+
+  renderInventoryNotifications();
+  window.addEventListener("storage", (event) => {
+    if (event.key === NOTIFICATIONS_KEY) renderInventoryNotifications();
+  });
+  window.addEventListener(
+    "inventory:notification-created",
+    renderInventoryNotifications,
+  );
 
   function showInventorySection(pageNumber) {
     const requestedPage = Number(pageNumber);
@@ -847,7 +962,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (selectedSort === "expiry") {
         const aExpiry = a.expiry ? new Date(a.expiry).getTime() : Infinity;
-
         const bExpiry = b.expiry ? new Date(b.expiry).getTime() : Infinity;
 
         return aExpiry - bExpiry;
@@ -855,7 +969,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (selectedSort === "id-asc") {
         const aId = Number(String(a.id || "").replace(/\D/g, "")) || 0;
-
         const bId = Number(String(b.id || "").replace(/\D/g, "")) || 0;
 
         return aId - bId;
@@ -884,20 +997,14 @@ document.addEventListener("DOMContentLoaded", () => {
       inventoryNextPageBtn.disabled = true;
       return;
     }
-
     inventoryPagination.style.display = "flex";
-
     const startItem = (inventoryCurrentPage - 1) * INVENTORY_PAGE_SIZE + 1;
-
     const endItem = Math.min(
       inventoryCurrentPage * INVENTORY_PAGE_SIZE,
       totalItems,
     );
-
     inventoryPaginationSummary.textContent = `Showing ${startItem}–${endItem} of ${totalItems} items`;
-
     inventoryPaginationPageInfo.textContent = `Page ${inventoryCurrentPage} of ${totalPages}`;
-
     inventoryPrevPageBtn.disabled = inventoryCurrentPage <= 1;
     inventoryNextPageBtn.disabled = inventoryCurrentPage >= totalPages;
   }
@@ -910,7 +1017,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const filteredItems = getFilteredItems();
     const allItems = getItems();
     const totalItems = filteredItems.length;
-
     const totalPages = Math.max(Math.ceil(totalItems / INVENTORY_PAGE_SIZE), 1);
 
     if (inventoryCurrentPage > totalPages) {
@@ -922,7 +1028,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const startIndex = (inventoryCurrentPage - 1) * INVENTORY_PAGE_SIZE;
-
     const pageItems = filteredItems.slice(
       startIndex,
       startIndex + INVENTORY_PAGE_SIZE,
@@ -1291,7 +1396,6 @@ document.addEventListener("DOMContentLoaded", () => {
       showInventoryMessage("Please enter a valid quantity.", "error");
       return;
     }
-
     const items = getItems();
 
     const itemIndex = items.findIndex(
@@ -1686,7 +1790,6 @@ document.addEventListener("DOMContentLoaded", () => {
     viewItemModal.classList.remove("active");
     viewItemModal.setAttribute("aria-hidden", "true");
   }
-
   function openDeleteItemModal(item) {
     closeActionMenu();
 
@@ -1966,7 +2069,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updateStatistics();
     populateMovementItems();
   }
-
   showInventorySection(inventoryCurrentSection);
   renderAll();
 });

@@ -50,6 +50,8 @@
         class="nav-toggle-btn"
         id="navToggleBtn"
         aria-label="Toggle Navigation"
+        aria-controls="navMenuWrapper"
+        aria-expanded="false"
       >
         <i class="fa-solid fa-bars" id="navToggleIcon"></i>
       </button>
@@ -123,6 +125,12 @@
                 class="hero-img"
               />
             </div>
+
+            <div
+              class="hero-slider-dots"
+              id="heroSliderDots"
+              aria-label="Choose hero image"
+            ></div>
           </div>
 
           <div class="hero-trust-line">
@@ -173,6 +181,11 @@
             <i class="fa-solid fa-tooth"></i>
             OUR SERVICES
           </div>
+          <h2>Dental care for every stage of your smile</h2>
+          <p class="section-subtitle">
+            Personalized treatments designed to keep your teeth healthy,
+            comfortable, and confident.
+          </p>
         </div>
 
         <div class="services-grid">
@@ -250,6 +263,11 @@
             <i class="fa-solid fa-tooth"></i>
             ABOUT DENTANUEVA
           </div>
+          <h2>Care that puts your comfort first</h2>
+          <p class="section-subtitle">
+            Meet a clinic committed to thoughtful treatment and dependable
+            support for every patient.
+          </p>
         </div>
 
         <div class="about-content-row">
@@ -268,7 +286,7 @@
             </p>
 
             <p>
-              Our team of experienced dentist and hygienists are committed to
+              Our team of experienced dentists and hygienists is committed to
               staying at the forefront of dental technology and techniques to
               ensure you receive the best possible care.
             </p>
@@ -298,7 +316,7 @@
                   <strong>Patient-Centered Care</strong>
 
                   <span>
-                    Your comfort and satisfaction is our top priority.
+                    Your comfort and satisfaction are our top priority.
                   </span>
                 </div>
               </li>
@@ -369,6 +387,11 @@
       <section class="why-choose-section">
         <div class="section-heading">
           <div class="section-tag-top">WHY CHOOSE OUR CLINIC?</div>
+          <h2>A calmer, more confident dental visit</h2>
+          <p class="section-subtitle">
+            From your first consultation to follow-up care, our team keeps your
+            experience clear and comfortable.
+          </p>
         </div>
 
         <div class="why-grid">
@@ -422,6 +445,10 @@
       <section class="location-section" id="location">
         <div class="section-heading">
           <div class="section-tag-top">FIND US</div>
+          <h2>Visit DentaNueva</h2>
+          <p class="section-subtitle">
+            Contact us to ask a question or find the best time for your visit.
+          </p>
         </div>
 
         <div class="location-grid">
@@ -464,7 +491,7 @@
                 <div>
                   <strong>Phone Number</strong>
 
-                  <span>0960 604 9914</span>
+                  <a href="tel:+639606049914">0960 604 9914</a>
                 </div>
               </li>
 
@@ -474,7 +501,9 @@
                 <div>
                   <strong>Email Address</strong>
 
-                  <span>Nathalia.Villanueva@gmail.com</span>
+                  <a href="mailto:Nathalia.Villanueva@gmail.com">
+                    Nathalia.Villanueva@gmail.com
+                  </a>
                 </div>
               </li>
 
@@ -495,17 +524,17 @@
       <footer class="home-footer">
         <div class="footer-grid">
           <div class="footer-col footer-brand-col">
-            <div class="footer-brand"></div>
-
             <ul class="footer-links">
               <li>
                 <i class="fa-brands fa-facebook"></i>
-                @DentaNueva
+                <a href="#" aria-label="DentaNueva on Facebook">@DentaNueva</a>
               </li>
 
               <li>
                 <i class="fa-solid fa-envelope"></i>
-                Nathalia.Villanueva@gmail.com
+                <a href="mailto:Nathalia.Villanueva@gmail.com">
+                  Nathalia.Villanueva@gmail.com
+                </a>
               </li>
 
               <li>
@@ -533,15 +562,28 @@
         </div>
 
         <div class="footer-bottom">
-          <p>&copy; DentaNueva Dental Clinic, All right reserved</p>
+          <p>&copy; DentaNueva Dental Clinic. All rights reserved.</p>
         </div>
       </footer>
     </div>
 
-    <div class="login-modal-overlay" id="loginModalOverlay">
+    <div
+      class="login-modal-overlay"
+      id="loginModalOverlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="loginModalTitle"
+      aria-hidden="true"
+    >
       <div class="login-modal-container">
-        <button class="modal-close-btn" id="modalCloseBtn">
-          <i class="fa-solid fa-xmark"></i>
+        <h2 id="loginModalTitle" class="visually-hidden">Log in</h2>
+        <button
+          class="modal-close-btn"
+          id="modalCloseBtn"
+          type="button"
+          aria-label="Close login dialog"
+        >
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
 
         <iframe

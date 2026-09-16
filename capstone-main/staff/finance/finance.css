@@ -531,6 +531,51 @@ button {
   background: #fff0f0;
   color: #d04b4b;
 }
+.pending-payments-card {
+  margin-top: 18px;
+}
+.pending-payment-list {
+  display: grid;
+  gap: 10px;
+  padding: 0 22px 22px;
+}
+.pending-payment-item {
+  display: grid;
+  grid-template-columns: 1fr 120px auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid #e5ece7;
+  border-radius: 10px;
+  background: #fbfdfc;
+}
+.pending-payment-item strong,
+.pending-payment-item span,
+.pending-payment-item small {
+  display: block;
+}
+.pending-payment-item span,
+.pending-payment-item small {
+  margin-top: 4px;
+  color: #7b8780;
+  font-size: 0.68rem;
+}
+.pending-payment-proof img {
+  width: 110px;
+  height: 75px;
+  object-fit: cover;
+  border: 1px solid #dfe8e2;
+  border-radius: 7px;
+}
+.pending-payment-actions {
+  display: flex;
+  gap: 7px;
+}
+.pending-payment-empty {
+  padding: 22px;
+  color: #89958e;
+  font-size: 0.72rem;
+}
 .action-cell {
   width: 145px;
   padding: 8px 0 !important;

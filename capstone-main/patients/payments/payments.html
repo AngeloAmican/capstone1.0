@@ -279,6 +279,12 @@
               </select>
             </div>
 
+            <div class="patient-pay-field">
+              <label for="patientPayProof">Payment Screenshot</label>
+              <input type="file" id="patientPayProof" accept="image/*" required />
+              <small>Upload the proof that staff will verify.</small>
+            </div>
+
             <div
               class="patient-pay-process"
               id="patientPayProcess"
@@ -347,6 +353,7 @@
     </div>
 
     <script src="../navigation_bar/sidebar.js"></script>
+    <script src="../../shared/payments/payment_service.js"></script>
     <script src="payments.js"></script>
   </body>
 </html>

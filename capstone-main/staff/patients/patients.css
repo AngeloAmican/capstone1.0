@@ -3097,9 +3097,34 @@ textarea:focus-visible {
 }
 
 .patient-overview-empty {
-  padding: 18px 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 130px;
+  padding: 20px 15px;
   color: var(--text-soft);
+  text-align: center;
+}
+
+.patient-overview-empty i {
+  margin-bottom: 2px;
+  color: var(--text-muted);
+  font-size: 20px;
+}
+
+.patient-overview-empty strong {
+  color: var(--text);
   font-size: 11px;
+  font-weight: 800;
+}
+
+.patient-overview-empty span {
+  max-width: 360px;
+  color: var(--text-soft);
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 .patient-overview-medical-summary {
@@ -4774,6 +4799,25 @@ textarea:focus-visible {
 .staff-actual-treatment-info span {
   color: var(--text-soft);
   font-size: 9px;
+}
+
+.staff-treatment-materials {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 7px 8px;
+  border: 1px solid #dcebe1;
+  border-radius: 7px;
+  background: #f5fbf7;
+  color: var(--text-soft);
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.staff-treatment-materials i {
+  padding-top: 1px;
+  color: var(--green);
 }
 
 .staff-treatment-view-only {

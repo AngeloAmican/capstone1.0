@@ -376,6 +376,11 @@ function getInitials(name) {
 
 function bindEvents() {
   $("startRecordBtn")?.addEventListener("click", openMedicalModal);
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("#editProfileBtn")) {
+      openProfileEditModal();
+    }
+  });
 
   document.querySelectorAll(".patient-record-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
@@ -384,14 +389,17 @@ function bindEvents() {
   });
 
   $("closeMedicalModal")?.addEventListener("click", closeMedicalModal);
+  $("closeProfileEditModal")?.addEventListener("click", closeProfileEditModal);
 
   $("cancelMedicalBtn")?.addEventListener("click", closeMedicalModal);
+  $("cancelProfileEdit")?.addEventListener("click", closeProfileEditModal);
 
   $("nextMedicalBtn")?.addEventListener("click", nextStep);
 
   $("backMedicalBtn")?.addEventListener("click", previousStep);
 
   $("medicalRecordForm")?.addEventListener("submit", saveMedicalRecord);
+  $("profileEditForm")?.addEventListener("submit", saveProfileEdit);
 
   $("successCloseBtn")?.addEventListener("click", closeSuccessModal);
 
@@ -412,6 +420,7 @@ function bindEvents() {
       return;
     }
     closeMedicalModal();
+    closeProfileEditModal();
     closeSuccessModal();
   });
 
@@ -487,6 +496,129 @@ function populatePatientProfile() {
   if ($("profileAvatar")) {
     $("profileAvatar").textContent = getInitials(fullName);
   }
+}
+
+function openProfileEditModal() {
+  if (!currentPatient) {
+    alert("Patient record could not be found. Please log in again.");
+    return;
+  }
+
+  $("editFirstName").value = currentPatient.firstName || "";
+  $("editLastName").value = currentPatient.lastName || "";
+  $("editDateOfBirth").value = currentPatient.dateOfBirth || "";
+  $("editGender").value =
+    currentPatient.gender || currentPatient.patientGender || "";
+  $("editPhone").value = currentPatient.phone || "";
+  $("editEmail").value = currentPatient.email || "";
+  $("editAddress").value = currentPatient.address || "";
+  $("editEmergencyName").value = currentPatient.emergencyName || "";
+  $("editEmergencyContact").value = currentPatient.emergencyContact || "";
+
+  $("profileEditModalBackdrop").classList.add("open");
+  $("profileEditModalBackdrop").setAttribute("aria-hidden", "false");
+}
+
+function closeProfileEditModal() {
+  $("profileEditModalBackdrop")?.classList.remove("open");
+  $("profileEditModalBackdrop")?.setAttribute("aria-hidden", "true");
+}
+
+function saveProfileEdit(event) {
+  event.preventDefault();
+
+  const form = $("profileEditForm");
+  if (!currentPatient || !form?.checkValidity()) {
+    form?.reportValidity();
+    return;
+  }
+
+  const phone = $("editPhone").value.trim();
+  const emergencyContact = $("editEmergencyContact").value.trim();
+
+  if (!/^(09\d{9}|\+639\d{9})$/.test(phone)) {
+    $("editPhone").setCustomValidity(
+      "Please enter a valid Philippine phone number.",
+    );
+    form.reportValidity();
+    $("editPhone").setCustomValidity("");
+    return;
+  }
+
+  if (!/^(09\d{9}|\+639\d{9})$/.test(emergencyContact)) {
+    $("editEmergencyContact").setCustomValidity(
+      "Please enter a valid Philippine emergency contact number.",
+    );
+    form.reportValidity();
+    $("editEmergencyContact").setCustomValidity("");
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const firstName = $("editFirstName").value.trim();
+  const lastName = $("editLastName").value.trim();
+
+  currentPatient = {
+    ...currentPatient,
+    firstName,
+    lastName,
+    fullName: `${firstName} ${lastName}`.trim(),
+    dateOfBirth: $("editDateOfBirth").value,
+    gender: $("editGender").value,
+    patientGender: $("editGender").value,
+    phone,
+    email: $("editEmail").value.trim(),
+    address: $("editAddress").value.trim(),
+    emergencyName: $("editEmergencyName").value.trim(),
+    emergencyContact,
+    updatedAt: now,
+  };
+
+  const patients = getPatients();
+  const currentId = String(
+    currentPatient.patientId || currentPatient.id || "",
+  ).trim();
+  const index = patients.findIndex(
+    (patient) =>
+      String(patient.patientId || patient.id || "").trim() === currentId,
+  );
+
+  if (index === -1) {
+    alert("Patient record could not be saved. Please try again.");
+    return;
+  }
+
+  patients[index] = {
+    ...patients[index],
+    ...currentPatient,
+    appointments: Array.isArray(patients[index].appointments)
+      ? patients[index].appointments
+      : [],
+    medicalForm: patients[index].medicalForm || currentPatient.medicalForm,
+  };
+  currentPatient = normalizePatient(patients[index]);
+  patients[index] = currentPatient;
+  savePatients(patients);
+
+  if (currentUser) {
+    currentUser.patientId = currentPatient.patientId || currentPatient.id;
+    currentUser.firstName = currentPatient.firstName;
+    currentUser.lastName = currentPatient.lastName;
+    currentUser.fullName = currentPatient.fullName;
+    currentUser.email = currentPatient.email;
+    currentUser.phone = currentPatient.phone;
+    currentUser.dateOfBirth = currentPatient.dateOfBirth;
+    currentUser.gender = currentPatient.gender;
+    currentUser.address = currentPatient.address;
+    currentUser.emergencyName = currentPatient.emergencyName;
+    currentUser.emergencyContact = currentPatient.emergencyContact;
+    sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
+  }
+
+  closeProfileEditModal();
+  populatePatientProfile();
+  renderPatientOverview();
+  updatePageState();
 }
 function openPatientRecordTab(tabName) {
   const tabs = document.querySelectorAll(".patient-record-tab");
@@ -566,6 +698,10 @@ function renderPatientOverview() {
           <span class="record-page-eyebrow">PATIENT INFORMATION</span>
           <h3>Personal Information</h3>
         </div>
+        <button type="button" class="profile-edit-btn" id="editProfileBtn">
+          <i class="fa-solid fa-pen-to-square"></i>
+          Edit Record
+        </button>
       </div>
 
       <div class="patient-overview-information-grid">
@@ -1166,6 +1302,12 @@ function renderPatientTreatments() {
 
             const note = treatment.note || treatment.notes || "";
 
+            const consumedMaterials = Array.isArray(treatment.consumedMaterials)
+              ? treatment.consumedMaterials.filter(
+                  (item) => Number(item.quantity) > 0,
+                )
+              : [];
+
             const appointmentId = treatment.appointmentId || "";
 
             return `
@@ -1227,6 +1369,22 @@ function renderPatientTreatments() {
                         <div class="patient-treatment-note">
                           <span>NOTES</span>
                           <p>${escapeHTML(note)}</p>
+                        </div>
+                      `
+                      : ""
+                  }
+
+                  ${
+                    consumedMaterials.length
+                      ? `
+                        <div class="patient-treatment-materials">
+                          <span><i class="fa-solid fa-boxes-stacked"></i> ITEMS USED</span>
+                          <p>${consumedMaterials
+                            .map(
+                              (item) =>
+                                `${escapeHTML(item.itemName || item.name || "Item")} x ${Number(item.quantity)}`,
+                            )
+                            .join(" · ")}</p>
                         </div>
                       `
                       : ""

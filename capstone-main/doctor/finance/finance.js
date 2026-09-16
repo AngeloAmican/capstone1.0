@@ -27,8 +27,79 @@ document.addEventListener("DOMContentLoaded", () => {
   loadPatients();
   loadTransactions();
   setupEvents();
+  setupDoctorPaymentMethods();
   renderFinance();
 });
+
+function setupDoctorPaymentMethods() {
+  const service = window.DentaNuevaPaymentService;
+  const enabledInput = document.getElementById("doctorGcashEnabled");
+  const labelInput = document.getElementById("doctorGcashLabel");
+  const qrInput = document.getElementById("doctorGcashQr");
+  const accountsContainer = document.getElementById("doctorBankAccounts");
+  const addButton = document.getElementById("addDoctorBankBtn");
+  const saveButton = document.getElementById("saveDoctorPaymentMethods");
+  if (!service || !enabledInput || !labelInput || !qrInput || !accountsContainer) {
+    return;
+  }
+
+  const methods = service.getMethods();
+  enabledInput.checked = methods.gcash?.enabled !== false;
+  labelInput.value = methods.gcash?.label || "Clinic GCash";
+  qrInput.value = methods.gcash?.qrData || "";
+
+  function renderAccounts() {
+    const accounts = [...(methods.banks || [])];
+    accountsContainer.innerHTML = accounts
+      .map(
+        (account, index) => `
+          <div class="doctor-bank-account" data-bank-index="${index}">
+            <input type="text" data-bank-field="name" value="${escapeHtml(account.name || "")}" placeholder="Bank name" />
+            <input type="text" data-bank-field="accountName" value="${escapeHtml(account.accountName || "")}" placeholder="Account name" />
+            <input type="text" data-bank-field="accountNumber" value="${escapeHtml(account.accountNumber || "")}" placeholder="Account number" />
+            <button type="button" class="header-action-btn" data-remove-bank="${index}">Remove</button>
+          </div>
+        `,
+      )
+      .join("");
+  }
+
+  function collectAccounts() {
+    return [...accountsContainer.querySelectorAll(".doctor-bank-account")].map(
+      (row) => ({
+        name: row.querySelector('[data-bank-field="name"]')?.value.trim() || "",
+        accountName: row.querySelector('[data-bank-field="accountName"]')?.value.trim() || "",
+        accountNumber: row.querySelector('[data-bank-field="accountNumber"]')?.value.trim() || "",
+      }),
+    );
+  }
+
+  addButton?.addEventListener("click", () => {
+    methods.banks = collectAccounts();
+    methods.banks.push({ name: "", accountName: "", accountNumber: "" });
+    renderAccounts();
+  });
+  accountsContainer.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove-bank]");
+    if (!removeButton) return;
+    methods.banks = collectAccounts().filter(
+      (_, index) => index !== Number(removeButton.dataset.removeBank),
+    );
+    renderAccounts();
+  });
+  saveButton?.addEventListener("click", () => {
+    service.saveMethods({
+      gcash: {
+        enabled: enabledInput.checked,
+        label: labelInput.value.trim() || "Clinic GCash",
+        qrData: qrInput.value.trim(),
+      },
+      banks: collectAccounts(),
+    });
+    window.alert("Payment methods saved.");
+  });
+  renderAccounts();
+}
 function setupEvents() {
   setupPatientSelector();
   const search = document.getElementById("transactionSearch");

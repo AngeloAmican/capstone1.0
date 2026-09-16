@@ -3434,6 +3434,12 @@ function buildStaffTreatments(patient) {
             const treatmentTime =
               treatment.createdAt || treatment.updatedAt || "";
 
+            const consumedMaterials = Array.isArray(treatment.consumedMaterials)
+              ? treatment.consumedMaterials.filter(
+                  (item) => Number(item.quantity) > 0,
+                )
+              : [];
+
             return `
               <div class="staff-actual-treatment-card">
 
@@ -3471,6 +3477,17 @@ function buildStaffTreatments(patient) {
                   <span>
                     ${escapeHTML(procedure)}
                   </span>
+
+                  ${
+                    consumedMaterials.length
+                      ? `<div class="staff-treatment-materials"><i class="fa-solid fa-boxes-stacked"></i><span>${consumedMaterials
+                          .map(
+                            (item) =>
+                              `${escapeHTML(item.itemName || item.name || "Item")} x ${Number(item.quantity)}`,
+                          )
+                          .join(" · ")}</span></div>`
+                      : ""
+                  }
 
                 </div>
 
@@ -4665,7 +4682,20 @@ function buildStaffTreatments(patient) {
       new Date(b.date || b.createdAt || 0) -
       new Date(a.date || a.createdAt || 0),
   );
-  return `<div class="patient-record-section"><div class="patient-record-section-header"><div><span class="patient-record-section-eyebrow" style="color: #16803d; font-size: 10px;">CLINICAL HISTORY</span><p>Patient-specific treatment history and procedures performed.</p></div><span class="patient-record-count">${treatments.length} ${treatments.length === 1 ? "treatment" : "treatments"}</span></div>${treatments.length ? `<div class="treatment-history-list">${treatments.map((treatment) => `<div class="patient-record-appointment"><div class="patient-record-appointment-date"><span>${escapeHTML(formatDate(String(treatment.date || treatment.createdAt || "").slice(0, 10)))}</span>${treatment.createdAt ? `<strong><i class="fa-regular fa-clock"></i>${escapeHTML(formatDateTime(treatment.createdAt).split(", ")[1] || "")}</strong>` : ""}${treatment.toothNumber || treatment.tooth ? `<strong>Tooth ${escapeHTML(treatment.toothNumber || treatment.tooth)}</strong>` : ""}</div><div class="patient-record-appointment-info"><strong>${escapeHTML(treatment.procedure || treatment.treatment || "Treatment")}</strong>${treatment.note || treatment.notes ? `<span>${escapeHTML(treatment.note || treatment.notes)}</span>` : ""}</div></div>`).join("")}</div>` : `<div class="patient-record-empty"><i class="fa-solid fa-stethoscope"></i><strong>No treatments recorded</strong><span>Actual procedures performed by the dentist will appear here after clinical assessment.</span></div>`}<div class="staff-treatment-view-only"><i class="fa-solid fa-eye"></i><span>Actual treatments recorded by the Doctor. Viewing only.</span></div></div>`;
+  return `<div class="patient-record-section"><div class="patient-record-section-header"><div><span class="patient-record-section-eyebrow" style="color: #16803d; font-size: 10px;">CLINICAL HISTORY</span><p>Patient-specific treatment history and procedures performed.</p></div><span class="patient-record-count">${treatments.length} ${treatments.length === 1 ? "treatment" : "treatments"}</span></div>${
+    treatments.length
+      ? `<div class="treatment-history-list">${treatments
+          .map((treatment) => {
+            const consumedMaterials = Array.isArray(treatment.consumedMaterials)
+              ? treatment.consumedMaterials.filter(
+                  (item) => Number(item.quantity) > 0,
+                )
+              : [];
+            return `<div class="patient-record-appointment"><div class="patient-record-appointment-date"><span>${escapeHTML(formatDate(String(treatment.date || treatment.createdAt || "").slice(0, 10)))}</span>${treatment.createdAt ? `<strong><i class="fa-regular fa-clock"></i>${escapeHTML(formatDateTime(treatment.createdAt).split(", ")[1] || "")}</strong>` : ""}${treatment.toothNumber || treatment.tooth ? `<strong>Tooth ${escapeHTML(treatment.toothNumber || treatment.tooth)}</strong>` : ""}</div><div class="patient-record-appointment-info"><strong>${escapeHTML(treatment.procedure || treatment.treatment || "Treatment")}</strong>${treatment.note || treatment.notes ? `<span>${escapeHTML(treatment.note || treatment.notes)}</span>` : ""}${consumedMaterials.length ? `<div class="staff-treatment-materials"><i class="fa-solid fa-boxes-stacked"></i><span>${consumedMaterials.map((item) => `${escapeHTML(item.itemName || item.name || "Item")} x ${Number(item.quantity)}`).join(" · ")}</span></div>` : ""}</div></div>`;
+          })
+          .join("")}</div>`
+      : `<div class="patient-record-empty"><i class="fa-solid fa-stethoscope"></i><strong>No treatments recorded</strong><span>Actual procedures performed by the dentist will appear here after clinical assessment.</span></div>`
+  }<div class="staff-treatment-view-only"><i class="fa-solid fa-eye"></i><span>Actual treatments recorded by the Doctor. Viewing only.</span></div></div>`;
 }
 
 function buildStaffAppointments(appointments) {

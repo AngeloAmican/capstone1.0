@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const RESET_KEY = "dentaNuevaFinanceTransactionsResetV1";
   const PATIENT_STORAGE_KEY = "dentanueva_patients";
   const FINANCE_PENDING_PAYMENT_KEY = "dentaNuevaPendingPayment";
+  const paymentService = window.DentaNuevaPaymentService;
   const SERVICE_DURATIONS = {
     Consultation: 30,
     "Dental Cleaning": 45,
@@ -126,6 +127,8 @@ document.addEventListener("DOMContentLoaded", function () {
   );
   const paymentProcessBox = document.getElementById("paymentProcessBox");
   const savePaymentBtn = document.getElementById("savePaymentBtn");
+  const pendingPaymentList = document.getElementById("pendingPaymentList");
+  const pendingPaymentCount = document.getElementById("pendingPaymentCount");
   initialize();
   function initialize() {
     loadPatients();
@@ -137,6 +140,7 @@ document.addEventListener("DOMContentLoaded", function () {
     updateMonthlyCollectionDescription();
     setDefaultCustomRange();
     renderTransactions();
+    renderPendingPayments();
     renderPaymentMethods();
     showTodayCollection();
     loadPatientFromUrl();
@@ -145,9 +149,86 @@ document.addEventListener("DOMContentLoaded", function () {
       lucide.createIcons();
     }
     setupEventListeners();
+    window.addEventListener("storage", function (event) {
+      if (event.key === paymentService?.REQUESTS_KEY) {
+        renderPendingPayments();
+      }
+    });
     loadPendingPaymentFromAppointment();
   }
+
+  function renderPendingPayments() {
+    if (!pendingPaymentList || !paymentService) {
+      return;
+    }
+    const requests = paymentService
+      .getRequests()
+      .filter((request) => request.status === "pending");
+    if (pendingPaymentCount) {
+      pendingPaymentCount.textContent = `${requests.length} pending`;
+    }
+    pendingPaymentList.innerHTML = requests.length
+      ? requests
+          .map(
+            (request) => `
+              <article class="pending-payment-item">
+                <div>
+                  <strong>${escapeHtml(request.patientName)}</strong>
+                  <span>${escapeHtml(request.paymentMethod)} · Claimed ${formatCurrency(request.claimedAmount)}</span>
+                  <small>${escapeHtml(request.proofName || "No filename")}</small>
+                </div>
+                <div class="pending-payment-proof">
+                  ${request.proofData ? `<img src="${request.proofData}" alt="Payment proof for ${escapeHtml(request.patientName)}" />` : "<span>No proof</span>"}
+                </div>
+                <div class="pending-payment-actions">
+                  <button type="button" class="secondary-button" data-payment-action="reject" data-payment-id="${escapeHtml(request.id)}">Reject</button>
+                  <button type="button" class="primary-button" data-payment-action="approve" data-payment-id="${escapeHtml(request.id)}">Verify and Confirm</button>
+                </div>
+              </article>
+            `,
+          )
+          .join("")
+      : '<div class="pending-payment-empty">No pending payment submissions.</div>';
+  }
+
+  function handlePendingPaymentAction(action, requestId) {
+    if (!paymentService) {
+      return;
+    }
+    try {
+      if (action === "reject") {
+        const note = window.prompt("Reason for rejection:", "") || "";
+        paymentService.rejectRequest(requestId, note);
+      } else {
+        const request = paymentService
+          .getRequests()
+          .find((item) => String(item.id) === String(requestId));
+        const claimed = Number(request?.claimedAmount) || 0;
+        const value = window.prompt("Enter the verified amount from the proof:", String(claimed));
+        if (value === null) {
+          return;
+        }
+        const note = window.prompt("Verification note (optional):", "") || "";
+        paymentService.approveRequest(requestId, Number(value), note);
+      }
+      loadTransactions();
+      renderTransactions();
+      renderPendingPayments();
+    } catch (error) {
+      window.alert(error.message);
+    }
+  }
   function setupEventListeners() {
+    pendingPaymentList?.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-payment-action]");
+      if (!button) {
+        return;
+      }
+      handlePendingPaymentAction(
+        button.dataset.paymentAction,
+        button.dataset.paymentId,
+      );
+    });
     recordPaymentBtn.addEventListener("click", function () {
       openPaymentModal();
     });
